@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/arunbajpai35/greedygame-targeting-engine/internal/campaigns"
+	"github.com/arunbajpai35/greedygame-targeting-engine/internal/metrics"
 	"github.com/arunbajpai35/greedygame-targeting-engine/internal/models"
 )
 
@@ -24,6 +25,7 @@ func HandleDeliveryRequest(db *sql.DB) http.HandlerFunc {
 		if errMsg != "" {
 			log.Printf("❌ Invalid request parameters: %s", errMsg)
 			w.WriteHeader(http.StatusBadRequest)
+			metrics.ObserveRequest("bad_request", time.Since(start).Seconds())
 			json.NewEncoder(w).Encode(map[string]string{"error": errMsg})
 			return
 		}
@@ -33,6 +35,7 @@ func HandleDeliveryRequest(db *sql.DB) http.HandlerFunc {
 		if err != nil {
 			log.Printf("❌ Database query failed: %v", err)
 			w.WriteHeader(http.StatusInternalServerError)
+			metrics.ObserveRequest("error", time.Since(start).Seconds())
 			json.NewEncoder(w).Encode(map[string]string{"error": "internal server error"})
 			return
 		}
@@ -44,10 +47,12 @@ func HandleDeliveryRequest(db *sql.DB) http.HandlerFunc {
 		// Return appropriate response
 		if len(matched) == 0 {
 			w.WriteHeader(http.StatusNoContent)
+			metrics.ObserveRequest("no_content", time.Since(start).Seconds())
 			return
 		}
 
 		w.WriteHeader(http.StatusOK)
+		metrics.ObserveRequest("ok", time.Since(start).Seconds())
 		if err := json.NewEncoder(w).Encode(matched); err != nil {
 			log.Printf("❌ Failed to encode response: %v", err)
 		}

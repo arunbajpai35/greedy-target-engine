@@ -3,7 +3,9 @@ package campaigns
 import (
 	"database/sql"
 	"strings"
+	"time"
 
+	"github.com/arunbajpai35/greedygame-targeting-engine/internal/metrics"
 	"github.com/arunbajpai35/greedygame-targeting-engine/internal/models"
 )
 
@@ -31,11 +33,13 @@ func GetMatchingCampaigns(db *sql.DB, app, country, os string) ([]models.Campaig
 	ORDER BY c.cid
 	`
 
+	start := time.Now()
 	rows, err := db.Query(query, app, country, os)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
+	metrics.ObserveDBQuery(time.Since(start).Seconds())
 
 	var campaigns []models.Campaign
 

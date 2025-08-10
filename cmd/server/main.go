@@ -13,9 +13,13 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	_ "github.com/lib/pq" // PostgreSQL driver
+	_ "github.com/lib/pq"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/arunbajpai35/greedygame-targeting-engine/internal/delivery"
+	"github.com/arunbajpai35/greedygame-targeting-engine/internal/endpoints"
+	"github.com/arunbajpai35/greedygame-targeting-engine/internal/service"
+	transport "github.com/arunbajpai35/greedygame-targeting-engine/internal/transport/http"
 )
 
 func main() {
@@ -52,9 +56,19 @@ func main() {
 		w.Write([]byte(`{"status":"healthy","timestamp":"` + time.Now().Format(time.RFC3339) + `"}`))
 	})
 
-	// API routes
+	// Prometheus metrics endpoint
+	r.Handle("/metrics", promhttp.Handler())
+
+	// API routes v1 (legacy/tests)
 	r.Route("/v1", func(r chi.Router) {
 		r.Get("/delivery", delivery.HandleDeliveryRequest(db))
+	})
+
+	// API routes v2 (go-kit)
+	svc := service.NewDeliveryService(db)
+	eps := endpoints.Endpoints{Delivery: endpoints.MakeDeliveryEndpoint(svc)}
+	r.Route("/", func(r chi.Router) {
+		transport.RegisterV2Routes(r, eps)
 	})
 
 	// Create server

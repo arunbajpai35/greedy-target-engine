@@ -257,6 +257,32 @@ kubectl apply -f k8s/
 - Request rate monitoring
 - Database performance metrics
 
+## 📈 Monitoring (Prometheus & Grafana)
+
+- Metrics endpoint: `GET /metrics`
+- Exposed metrics:
+  - `delivery_requests_total{status}`
+  - `delivery_request_duration_seconds{status}`
+  - `db_query_duration_seconds`
+
+Start full stack with monitoring:
+
+```bash
+docker-compose up -d
+# Prometheus: http://localhost:9090
+# Grafana:    http://localhost:3000  (admin/admin)
+```
+
+## v2 API (go-kit)
+
+- New endpoint (same behavior as v1) built with go-kit:
+
+```http
+GET /v2/delivery?app={app}&country={country}&os={os}
+```
+
+v1 routes remain for compatibility and tests.
+
 ## 🔍 Troubleshooting
 
 ### Common Issues
