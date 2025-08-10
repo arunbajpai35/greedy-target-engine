@@ -11,6 +11,7 @@ help:
 	@echo "  clean        - Clean build artifacts"
 	@echo "  docker-build - Build Docker image"
 	@echo "  docker-run   - Run with Docker Compose"
+	@echo "  demo         - Setup DB, run server, and exercise API (no Docker)"
 	@echo "  docker-stop  - Stop Docker Compose services"
 	@echo "  lint         - Run linter"
 	@echo "  fmt          - Format code"
@@ -106,3 +107,7 @@ dev-setup: deps docker-run
 prod-build:
 	@echo "Building for production..."
 	CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o bin/server ./cmd/server 
+
+demo:
+	@echo "Running local demo (no Docker)..."
+	bash ./scripts/setup-and-demo.sh 
