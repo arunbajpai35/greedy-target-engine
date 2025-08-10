@@ -43,7 +43,7 @@ fi
 
 # Test delivery request with no matches
 echo -e "\n${YELLOW}3. Testing Delivery Request with No Matches${NC}"
-response=$(curl -s -w "%{http_code}" "$BASE_URL/v1/delivery?app=com.test&country=us&os=web")
+response=$(curl -s -w "%{http_code}" "$BASE_URL/v1/delivery?app=com.test&country=germany&os=web")
 http_code="${response: -3}"
 
 if [ "$http_code" -eq 204 ]; then

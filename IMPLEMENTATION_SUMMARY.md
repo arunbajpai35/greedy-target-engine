@@ -133,7 +133,7 @@ curl "http://localhost:8080/v1/delivery?app=com.gametion.ludokinggame&country=us
 
 ### No Matches
 ```bash
-curl "http://localhost:8080/v1/delivery?app=com.test&country=us&os=web"
+curl "http://localhost:8080/v1/delivery?app=com.test&country=germany&os=web"
 ```
 
 **Response:** `HTTP 204 No Content`

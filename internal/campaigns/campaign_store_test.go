@@ -54,7 +54,7 @@ func TestGetMatchingCampaigns(t *testing.T) {
 		{
 			name:     "No matches for web",
 			app:      "com.test",
-			country:  "us",
+			country:  "germany",
 			os:       "web",
 			expected: []string{},
 		},

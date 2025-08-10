@@ -122,7 +122,7 @@ func TestHandleDeliveryRequest_Integration(t *testing.T) {
 		},
 		{
 			name:           "No matches - should return 204",
-			query:          "?app=com.test&country=us&os=web",
+			query:          "?app=com.test&country=germany&os=web",
 			expectedStatus: http.StatusNoContent,
 		},
 		{
