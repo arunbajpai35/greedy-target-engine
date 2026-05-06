@@ -1,6 +1,7 @@
 package campaigns
 
 import (
+	"context"
 	"database/sql"
 	"testing"
 
@@ -69,7 +70,7 @@ func TestGetMatchingCampaigns(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			campaigns, err := GetMatchingCampaigns(db, tc.app, tc.country, tc.os)
+			campaigns, err := GetMatchingCampaigns(context.Background(), db, tc.app, tc.country, tc.os)
 			require.NoError(t, err)
 
 			// Extract campaign IDs
@@ -121,7 +122,7 @@ func TestGetCampaignByID(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			campaign, err := GetCampaignByID(db, tc.campaignID)
+			campaign, err := GetCampaignByID(context.Background(), db, tc.campaignID)
 
 			if tc.shouldExist {
 				require.NoError(t, err)
@@ -149,7 +150,7 @@ func TestGetAllActiveCampaigns(t *testing.T) {
 		t.Skip("Cannot connect to database, skipping campaign store tests")
 	}
 
-	campaigns, err := GetAllActiveCampaigns(db)
+	campaigns, err := GetAllActiveCampaigns(context.Background(), db)
 	require.NoError(t, err)
 
 	// Should have at least the seeded campaigns

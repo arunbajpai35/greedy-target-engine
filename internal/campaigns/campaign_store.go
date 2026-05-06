@@ -1,6 +1,7 @@
 package campaigns
 
 import (
+	"context"
 	"database/sql"
 	"strings"
 	"time"
@@ -9,32 +10,27 @@ import (
 	"github.com/arunbajpai35/greedygame-targeting-engine/internal/models"
 )
 
-func GetMatchingCampaigns(db *sql.DB, app, country, os string) ([]models.Campaign, error) {
-	// Convert to lowercase for case-insensitive matching
+const matchQuery = `
+SELECT DISTINCT c.cid, c.name, c.img, c.cta, c.status
+FROM campaigns c
+JOIN targeting_rules tr ON c.cid = tr.cid
+WHERE c.status = 'ACTIVE'
+  AND (tr.include_country IS NULL OR $2 = ANY(tr.include_country))
+  AND (tr.include_os      IS NULL OR $3 = ANY(tr.include_os))
+  AND (tr.include_app     IS NULL OR $1 = ANY(tr.include_app))
+  AND (tr.exclude_country IS NULL OR NOT ($2 = ANY(tr.exclude_country)))
+  AND (tr.exclude_os      IS NULL OR NOT ($3 = ANY(tr.exclude_os)))
+  AND (tr.exclude_app     IS NULL OR NOT ($1 = ANY(tr.exclude_app)))
+ORDER BY c.cid
+`
+
+func GetMatchingCampaigns(ctx context.Context, db *sql.DB, app, country, os string) ([]models.Campaign, error) {
 	app = strings.ToLower(app)
 	country = strings.ToLower(country)
 	os = strings.ToLower(os)
 
-	query := `
-	SELECT DISTINCT c.cid, c.name, c.img, c.cta, c.status
-	FROM campaigns c
-	JOIN targeting_rules tr ON c.cid = tr.cid
-	WHERE c.status = 'ACTIVE'
-	  AND (
-		-- Check include rules
-		(tr.include_country IS NULL OR $2 = ANY(tr.include_country))
-		AND (tr.include_os IS NULL OR $3 = ANY(tr.include_os))
-		AND (tr.include_app IS NULL OR $1 = ANY(tr.include_app))
-		-- Check exclude rules
-		AND (tr.exclude_country IS NULL OR NOT ($2 = ANY(tr.exclude_country)))
-		AND (tr.exclude_os IS NULL OR NOT ($3 = ANY(tr.exclude_os)))
-		AND (tr.exclude_app IS NULL OR NOT ($1 = ANY(tr.exclude_app)))
-	  )
-	ORDER BY c.cid
-	`
-
 	start := time.Now()
-	rows, err := db.Query(query, app, country, os)
+	rows, err := db.QueryContext(ctx, matchQuery, app, country, os)
 	if err != nil {
 		return nil, err
 	}
@@ -58,24 +54,21 @@ func GetMatchingCampaigns(db *sql.DB, app, country, os string) ([]models.Campaig
 	return campaigns, nil
 }
 
-// GetCampaignByID retrieves a single campaign by ID
-func GetCampaignByID(db *sql.DB, campaignID string) (*models.Campaign, error) {
+func GetCampaignByID(ctx context.Context, db *sql.DB, campaignID string) (*models.Campaign, error) {
 	query := `SELECT cid, name, img, cta, status FROM campaigns WHERE cid = $1`
 
 	var c models.Campaign
-	err := db.QueryRow(query, campaignID).Scan(&c.ID, &c.Name, &c.Img, &c.CTA, &c.Status)
+	err := db.QueryRowContext(ctx, query, campaignID).Scan(&c.ID, &c.Name, &c.Img, &c.CTA, &c.Status)
 	if err != nil {
 		return nil, err
 	}
-
 	return &c, nil
 }
 
-// GetAllActiveCampaigns retrieves all active campaigns
-func GetAllActiveCampaigns(db *sql.DB) ([]models.Campaign, error) {
+func GetAllActiveCampaigns(ctx context.Context, db *sql.DB) ([]models.Campaign, error) {
 	query := `SELECT cid, name, img, cta, status FROM campaigns WHERE status = 'ACTIVE' ORDER BY cid`
 
-	rows, err := db.Query(query)
+	rows, err := db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, err
 	}
