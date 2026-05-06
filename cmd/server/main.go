@@ -19,6 +19,7 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	"github.com/arunbajpai35/greedygame-targeting-engine/internal/auth"
 	"github.com/arunbajpai35/greedygame-targeting-engine/internal/cache"
 	"github.com/arunbajpai35/greedygame-targeting-engine/internal/delivery"
 	"github.com/arunbajpai35/greedygame-targeting-engine/internal/endpoints"
@@ -88,13 +89,19 @@ func main() {
 	r.Get("/readyz", readiness(db))
 	r.Handle("/metrics", promhttp.Handler())
 
-	r.Route("/v1", func(r chi.Router) {
-		r.Get("/delivery", delivery.HandleDeliveryRequest(cch))
-	})
+	apiAuth := auth.RequireHMAC(os.Getenv("API_SECRET"))
+	if os.Getenv("API_SECRET") != "" {
+		logger.Info("hmac auth enabled on delivery routes")
+	}
 
-	svc := service.NewDeliveryService(cch)
-	eps := endpoints.Endpoints{Delivery: endpoints.MakeDeliveryEndpoint(svc)}
-	transport.RegisterV2Routes(r, eps)
+	r.Group(func(r chi.Router) {
+		r.Use(apiAuth)
+		r.Get("/v1/delivery", delivery.HandleDeliveryRequest(cch))
+
+		svc := service.NewDeliveryService(cch)
+		eps := endpoints.Endpoints{Delivery: endpoints.MakeDeliveryEndpoint(svc)}
+		transport.RegisterV2Routes(r, eps)
+	})
 
 	srv := &http.Server{
 		Addr:         ":" + getEnv("PORT", "8080"),
