@@ -3,10 +3,12 @@ package delivery
 import (
 	"database/sql"
 	"encoding/json"
-	"log"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/arunbajpai35/greedygame-targeting-engine/internal/campaigns"
 	"github.com/arunbajpai35/greedygame-targeting-engine/internal/metrics"
@@ -16,35 +18,32 @@ import (
 func HandleDeliveryRequest(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-
-		// Set response headers
+		reqID := middleware.GetReqID(r.Context())
 		w.Header().Set("Content-Type", "application/json")
 
-		// Validate request parameters
 		req, errMsg := validateParams(r)
 		if errMsg != "" {
-			log.Printf("❌ Invalid request parameters: %s", errMsg)
 			w.WriteHeader(http.StatusBadRequest)
 			metrics.ObserveRequest("bad_request", time.Since(start).Seconds())
-			json.NewEncoder(w).Encode(map[string]string{"error": errMsg})
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": errMsg})
 			return
 		}
 
-		// Get matching campaigns
 		matched, err := campaigns.GetMatchingCampaigns(db, req.App, req.Country, req.OS)
 		if err != nil {
-			log.Printf("❌ Database query failed: %v", err)
+			slog.ErrorContext(r.Context(), "delivery query failed", "req_id", reqID, "err", err)
 			w.WriteHeader(http.StatusInternalServerError)
 			metrics.ObserveRequest("error", time.Since(start).Seconds())
-			json.NewEncoder(w).Encode(map[string]string{"error": "internal server error"})
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "internal server error"})
 			return
 		}
 
-		// Log request details
-		log.Printf("📊 Request: app=%s, country=%s, os=%s, matches=%d, duration=%v",
-			req.App, req.Country, req.OS, len(matched), time.Since(start))
+		slog.InfoContext(r.Context(), "delivery",
+			"req_id", reqID,
+			"app", req.App, "country", req.Country, "os", req.OS,
+			"matches", len(matched), "duration_ms", time.Since(start).Milliseconds(),
+		)
 
-		// Return appropriate response
 		if len(matched) == 0 {
 			w.WriteHeader(http.StatusNoContent)
 			metrics.ObserveRequest("no_content", time.Since(start).Seconds())
@@ -54,7 +53,7 @@ func HandleDeliveryRequest(db *sql.DB) http.HandlerFunc {
 		w.WriteHeader(http.StatusOK)
 		metrics.ObserveRequest("ok", time.Since(start).Seconds())
 		if err := json.NewEncoder(w).Encode(matched); err != nil {
-			log.Printf("❌ Failed to encode response: %v", err)
+			slog.ErrorContext(r.Context(), "encode response", "req_id", reqID, "err", err)
 		}
 	}
 }
@@ -76,7 +75,7 @@ func validateParams(r *http.Request) (models.DeliveryRequest, string) {
 	}
 
 	return models.DeliveryRequest{
-		App:     app,
+		App:     strings.ToLower(app),
 		Country: strings.ToLower(country),
 		OS:      strings.ToLower(os),
 	}, ""
