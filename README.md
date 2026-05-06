@@ -43,17 +43,16 @@ A `NULL` array means "no constraint on this dimension". A non-null array on `inc
 
 ## How matching works
 
-One SQL query joins the two tables and applies the include/exclude predicates with `@>` against the request tuple. See `internal/campaigns/campaign_store.go`.
+The whole rule set is held in process memory as a snapshot. Each request walks the snapshot in Go and applies the include/exclude predicates — no SQL on the request path. See `internal/cache/cache.go`.
 
-## Performance trade-off
+The snapshot is rebuilt:
 
-The README this replaced claimed "optimized for billions of requests". The reality:
+- Once at boot.
+- Whenever Postgres fires `NOTIFY targeting_changes`. Triggers on `campaigns` and `targeting_rules` send the notification on any insert/update/delete; the listener (`internal/cache/listener.go`) coalesces bursts via a 200ms debounce and reloads. Schema is in `db/migrations/init.sql`.
 
-- GIN indexes are in place on the six array columns, and `@>` is the operator GIN serves.
-- But each predicate is wrapped as `(col IS NULL OR col @> ARRAY[$x])`. The `IS NULL` branch defeats the planner's index choice — at any meaningful row count it falls back to a sequential scan over `targeting_rules`.
-- Honest fix: drop `NULL` as the no-constraint sentinel, default to `'{}'`, and split the query so each branch is sargable. Or sit a small in-memory cache in front of the DB and refresh on `LISTEN/NOTIFY` — read-heavy workloads win more from that than from index tuning.
+This trades a tiny amount of staleness (≤200ms after the writer commits) for sub-millisecond reads and zero query load on the DB. The DB stays the source of truth — restart the service and it rebuilds from scratch.
 
-For the seeded scale of three campaigns, none of this matters. For "billions" it does.
+The earlier SQL-per-request implementation lived in an `internal/campaigns` package; it's gone now.
 
 ## Environment
 
@@ -73,8 +72,7 @@ Server listens on `:8080`.
 
 ## What's missing / what i'd do next
 
-- A real cache + invalidation path. `LISTEN/NOTIFY` on `targeting_rules` is the obvious lever for the "read-heavy" claim.
-- Schema rewrite so `'{}'` replaces `NULL` for "no constraint" — unblocks GIN.
 - Bench harness with `pgbench` or a Go bench so the perf claims have numbers behind them.
 - Auth on `/v1/delivery` (the take-home brief didn't ask, but a real ad-serving endpoint shouldn't be open).
+- Multi-instance cache coordination — the LISTEN/NOTIFY model fans out fine, but two replicas reload independently, which is wasteful at scale. A delta channel or a versioned snapshot pull would fix it.
 - Provisioned Grafana dashboards.

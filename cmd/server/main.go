@@ -19,6 +19,7 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	"github.com/arunbajpai35/greedygame-targeting-engine/internal/cache"
 	"github.com/arunbajpai35/greedygame-targeting-engine/internal/delivery"
 	"github.com/arunbajpai35/greedygame-targeting-engine/internal/endpoints"
 	"github.com/arunbajpai35/greedygame-targeting-engine/internal/service"
@@ -29,7 +30,8 @@ func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
 
-	db, err := sql.Open("postgres", dbConnString())
+	connStr := dbConnString()
+	db, err := sql.Open("postgres", connStr)
 	if err != nil {
 		logger.Error("open db", "err", err)
 		os.Exit(1)
@@ -47,6 +49,24 @@ func main() {
 	}
 	logger.Info("db connected")
 
+	rootCtx, cancelRoot := context.WithCancel(context.Background())
+	defer cancelRoot()
+
+	cch := cache.New()
+	loadCtx, loadCancel := context.WithTimeout(rootCtx, 10*time.Second)
+	if err := cch.Reload(loadCtx, db); err != nil {
+		loadCancel()
+		logger.Error("initial cache load", "err", err)
+		os.Exit(1)
+	}
+	loadCancel()
+	logger.Info("cache primed", "size", cch.Size())
+
+	if err := cache.StartListener(rootCtx, cch, db, connStr, 200*time.Millisecond); err != nil {
+		logger.Error("start listener", "err", err)
+		os.Exit(1)
+	}
+
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
@@ -58,10 +78,10 @@ func main() {
 	r.Handle("/metrics", promhttp.Handler())
 
 	r.Route("/v1", func(r chi.Router) {
-		r.Get("/delivery", delivery.HandleDeliveryRequest(db))
+		r.Get("/delivery", delivery.HandleDeliveryRequest(cch))
 	})
 
-	svc := service.NewDeliveryService(db)
+	svc := service.NewDeliveryService(cch)
 	eps := endpoints.Endpoints{Delivery: endpoints.MakeDeliveryEndpoint(svc)}
 	transport.RegisterV2Routes(r, eps)
 

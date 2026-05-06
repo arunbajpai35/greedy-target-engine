@@ -1,6 +1,7 @@
 package httptransport
 
 import (
+	"context"
 	"database/sql"
 	"net/http"
 	"net/http/httptest"
@@ -10,6 +11,7 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/arunbajpai35/greedygame-targeting-engine/internal/cache"
 	"github.com/arunbajpai35/greedygame-targeting-engine/internal/endpoints"
 	"github.com/arunbajpai35/greedygame-targeting-engine/internal/service"
 )
@@ -25,7 +27,11 @@ func newRouter(t *testing.T) (chi.Router, func()) {
 	if err := db.Ping(); err != nil {
 		t.Skip("db unreachable")
 	}
-	svc := service.NewDeliveryService(db)
+	cch := cache.New()
+	if err := cch.Reload(context.Background(), db); err != nil {
+		t.Fatalf("cache reload: %v", err)
+	}
+	svc := service.NewDeliveryService(cch)
 	eps := endpoints.Endpoints{Delivery: endpoints.MakeDeliveryEndpoint(svc)}
 	r := chi.NewRouter()
 	RegisterV2Routes(r, eps)

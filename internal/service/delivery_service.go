@@ -2,9 +2,9 @@ package service
 
 import (
 	"context"
-	"database/sql"
+	"strings"
 
-	"github.com/arunbajpai35/greedygame-targeting-engine/internal/campaigns"
+	"github.com/arunbajpai35/greedygame-targeting-engine/internal/cache"
 	"github.com/arunbajpai35/greedygame-targeting-engine/internal/models"
 )
 
@@ -13,13 +13,13 @@ type DeliveryService interface {
 }
 
 type deliveryService struct {
-	db *sql.DB
+	cache *cache.Cache
 }
 
-func NewDeliveryService(db *sql.DB) DeliveryService {
-	return &deliveryService{db: db}
+func NewDeliveryService(c *cache.Cache) DeliveryService {
+	return &deliveryService{cache: c}
 }
 
-func (s *deliveryService) Deliver(ctx context.Context, app, country, os string) ([]models.Campaign, error) {
-	return campaigns.GetMatchingCampaigns(ctx, s.db, app, country, os)
+func (s *deliveryService) Deliver(_ context.Context, app, country, os string) ([]models.Campaign, error) {
+	return s.cache.Match(strings.ToLower(app), strings.ToLower(country), strings.ToLower(os)), nil
 }

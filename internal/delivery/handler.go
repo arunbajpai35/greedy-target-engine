@@ -1,7 +1,6 @@
 package delivery
 
 import (
-	"database/sql"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -10,12 +9,12 @@ import (
 
 	"github.com/go-chi/chi/v5/middleware"
 
-	"github.com/arunbajpai35/greedygame-targeting-engine/internal/campaigns"
+	"github.com/arunbajpai35/greedygame-targeting-engine/internal/cache"
 	"github.com/arunbajpai35/greedygame-targeting-engine/internal/metrics"
 	"github.com/arunbajpai35/greedygame-targeting-engine/internal/models"
 )
 
-func HandleDeliveryRequest(db *sql.DB) http.HandlerFunc {
+func HandleDeliveryRequest(c *cache.Cache) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		reqID := middleware.GetReqID(r.Context())
@@ -29,14 +28,7 @@ func HandleDeliveryRequest(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		matched, err := campaigns.GetMatchingCampaigns(r.Context(), db, req.App, req.Country, req.OS)
-		if err != nil {
-			slog.ErrorContext(r.Context(), "delivery query failed", "req_id", reqID, "err", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			metrics.ObserveRequest("error", time.Since(start).Seconds())
-			_ = json.NewEncoder(w).Encode(map[string]string{"error": "internal server error"})
-			return
-		}
+		matched := c.Match(req.App, req.Country, req.OS)
 
 		slog.InfoContext(r.Context(), "delivery",
 			"req_id", reqID,
@@ -58,7 +50,6 @@ func HandleDeliveryRequest(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-// validateParams validates the required query parameters
 func validateParams(r *http.Request) (models.DeliveryRequest, string) {
 	app := strings.TrimSpace(r.URL.Query().Get("app"))
 	country := strings.TrimSpace(r.URL.Query().Get("country"))
