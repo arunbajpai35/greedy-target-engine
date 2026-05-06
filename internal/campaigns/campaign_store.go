@@ -15,12 +15,12 @@ SELECT DISTINCT c.cid, c.name, c.img, c.cta, c.status
 FROM campaigns c
 JOIN targeting_rules tr ON c.cid = tr.cid
 WHERE c.status = 'ACTIVE'
-  AND (tr.include_country IS NULL OR $2 = ANY(tr.include_country))
-  AND (tr.include_os      IS NULL OR $3 = ANY(tr.include_os))
-  AND (tr.include_app     IS NULL OR $1 = ANY(tr.include_app))
-  AND (tr.exclude_country IS NULL OR NOT ($2 = ANY(tr.exclude_country)))
-  AND (tr.exclude_os      IS NULL OR NOT ($3 = ANY(tr.exclude_os)))
-  AND (tr.exclude_app     IS NULL OR NOT ($1 = ANY(tr.exclude_app)))
+  AND (tr.include_country IS NULL OR tr.include_country @> ARRAY[$2]::text[])
+  AND (tr.include_os      IS NULL OR tr.include_os      @> ARRAY[$3]::text[])
+  AND (tr.include_app     IS NULL OR tr.include_app     @> ARRAY[$1]::text[])
+  AND (tr.exclude_country IS NULL OR NOT (tr.exclude_country @> ARRAY[$2]::text[]))
+  AND (tr.exclude_os      IS NULL OR NOT (tr.exclude_os      @> ARRAY[$3]::text[]))
+  AND (tr.exclude_app     IS NULL OR NOT (tr.exclude_app     @> ARRAY[$1]::text[]))
 ORDER BY c.cid
 `
 
