@@ -19,6 +19,14 @@ CREATE TABLE IF NOT EXISTS targeting_rules (
     exclude_app TEXT[]
 );
 
--- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_campaigns_status ON campaigns(status);
 CREATE INDEX IF NOT EXISTS idx_targeting_rules_cid ON targeting_rules(cid);
+
+-- GIN indexes power the @> (array contains) probes used by the matcher.
+-- Without these, every match scans the whole rules table.
+CREATE INDEX IF NOT EXISTS idx_targeting_rules_include_country ON targeting_rules USING GIN (include_country);
+CREATE INDEX IF NOT EXISTS idx_targeting_rules_exclude_country ON targeting_rules USING GIN (exclude_country);
+CREATE INDEX IF NOT EXISTS idx_targeting_rules_include_os      ON targeting_rules USING GIN (include_os);
+CREATE INDEX IF NOT EXISTS idx_targeting_rules_exclude_os      ON targeting_rules USING GIN (exclude_os);
+CREATE INDEX IF NOT EXISTS idx_targeting_rules_include_app     ON targeting_rules USING GIN (include_app);
+CREATE INDEX IF NOT EXISTS idx_targeting_rules_exclude_app     ON targeting_rules USING GIN (exclude_app);
