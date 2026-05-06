@@ -69,15 +69,21 @@ Schema lives in `internal/migrate/sql/` and is embedded into the binary; `init.s
 
 ## Live demo
 
-Deployed split-stack:
+https://greedy-target-engine.onrender.com — first request after idle takes ~30s while Render cold-starts the free instance.
 
-- Postgres on [Neon](https://neon.tech) (free tier).
-- Backend container on [Render](https://render.com) (free tier — first request after idle takes ~30s while it cold-starts).
+```bash
+curl 'https://greedy-target-engine.onrender.com/v1/delivery?app=com.gametion.ludokinggame&country=us&os=android'
+```
+
+Stack:
+
+- Postgres on [Neon](https://neon.tech) (free tier, `ap-southeast-1`).
+- Backend container on [Render](https://render.com) (free tier, Singapore).
 
 Wiring it up yourself:
 
-1. **Neon**: create a project, copy the connection string (the one with `?sslmode=require`).
-2. **Render**: New → Web Service → connect this repo. Runtime: Docker. Plan: free. Add env vars: `DATABASE_URL` (paste from Neon), `APPLY_SEED=true` for the first deploy (set to `false` afterwards). Render auto-injects `PORT`.
+1. **Neon**: create a project, copy the **direct** connection string — *not* the pooled one. The pooled hostname has `-pooler` in it; PgBouncer in transaction mode silently drops `LISTEN/NOTIFY`, so cache invalidation breaks. The pooled URL still works for everything else, which makes it especially nasty to debug.
+2. **Render**: New → Web Service → connect this repo. Runtime: Docker. Plan: free. Region: pick the same one as Neon. Env vars: `DATABASE_URL` (the direct URL from step 1), `APPLY_SEED=true` for the first deploy (flip to `false` afterwards). Render auto-injects `PORT`.
 3. First boot applies the schema and seed; subsequent boots only apply the schema.
 
 ## Observability
