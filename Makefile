@@ -85,8 +85,8 @@ deps:
 # Database operations
 db-migrate:
 	@echo "Running database migrations..."
-	docker exec -i $$(docker-compose ps -q postgres) psql -U postgres -d targeting_db < db/migrations/init.sql
-	docker exec -i $$(docker-compose ps -q postgres) psql -U postgres -d targeting_db < db/migrations/seed.sql
+	docker exec -i $$(docker-compose ps -q postgres) psql -U postgres -d targeting_db < internal/migrate/sql/init.sql
+	docker exec -i $$(docker-compose ps -q postgres) psql -U postgres -d targeting_db < internal/migrate/sql/seed.sql
 
 db-reset:
 	@echo "Resetting database..."

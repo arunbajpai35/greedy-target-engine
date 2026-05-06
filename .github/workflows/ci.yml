@@ -36,8 +36,8 @@ jobs:
         env:
           PGPASSWORD: password
         run: |
-          psql -h localhost -U postgres -d targeting_db -f db/migrations/init.sql
-          psql -h localhost -U postgres -d targeting_db -f db/migrations/seed.sql
+          psql -h localhost -U postgres -d targeting_db -f internal/migrate/sql/init.sql
+          psql -h localhost -U postgres -d targeting_db -f internal/migrate/sql/seed.sql
 
       - run: go vet ./...
       - run: go build ./...

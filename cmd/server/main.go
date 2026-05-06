@@ -22,6 +22,7 @@ import (
 	"github.com/arunbajpai35/greedygame-targeting-engine/internal/cache"
 	"github.com/arunbajpai35/greedygame-targeting-engine/internal/delivery"
 	"github.com/arunbajpai35/greedygame-targeting-engine/internal/endpoints"
+	"github.com/arunbajpai35/greedygame-targeting-engine/internal/migrate"
 	"github.com/arunbajpai35/greedygame-targeting-engine/internal/service"
 	transport "github.com/arunbajpai35/greedygame-targeting-engine/internal/transport/http"
 )
@@ -48,6 +49,16 @@ func main() {
 		os.Exit(1)
 	}
 	logger.Info("db connected")
+
+	migCtx, migCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	withSeed := getEnv("APPLY_SEED", "false") == "true"
+	if err := migrate.Apply(migCtx, db, withSeed); err != nil {
+		migCancel()
+		logger.Error("apply migrations", "err", err)
+		os.Exit(1)
+	}
+	migCancel()
+	logger.Info("migrations applied", "seed", withSeed)
 
 	rootCtx, cancelRoot := context.WithCancel(context.Background())
 	defer cancelRoot()
@@ -86,7 +97,7 @@ func main() {
 	transport.RegisterV2Routes(r, eps)
 
 	srv := &http.Server{
-		Addr:         ":8080",
+		Addr:         ":" + getEnv("PORT", "8080"),
 		Handler:      r,
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,
@@ -152,6 +163,12 @@ func pingWithRetry(db *sql.DB, attempts int, base time.Duration) error {
 }
 
 func dbConnString() string {
+	if v := os.Getenv("DATABASE_URL"); v != "" {
+		return v
+	}
+	if v := os.Getenv("DB_URL"); v != "" {
+		return v
+	}
 	return fmt.Sprintf(
 		"postgres://%s:%s@%s:%s/%s?sslmode=%s",
 		getEnv("DB_USER", "postgres"),
