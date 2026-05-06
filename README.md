@@ -89,7 +89,7 @@ Wiring it up yourself:
 ## Observability
 
 - `/metrics` exposes `delivery_requests_total{status}`, `delivery_request_duration_seconds{status}`, `db_query_duration_seconds`.
-- The compose stack starts Prometheus on `:9090` (scraping `app:8080`) and Grafana on `:3000` (admin/admin). Datasource and dashboards are not provisioned — add them manually.
+- The compose stack starts Prometheus on `:9090` (scraping `app:8080`) and Grafana on `:3000`. Grafana ships with the Prometheus datasource and the `targeting engine` dashboard already provisioned (`deploy/grafana/`). Anonymous viewer access is on; admin login is `admin`/`admin`.
 - Logs are JSON via `slog`.
 
 ## Numbers
@@ -116,4 +116,3 @@ The matcher is a linear walk over the snapshot, so cost grows with rule count. F
 
 - Auth on `/v1/delivery` (the take-home brief didn't ask, but a real ad-serving endpoint shouldn't be open).
 - Multi-instance cache coordination — the LISTEN/NOTIFY model fans out fine, but two replicas reload independently, which is wasteful at scale. A delta channel or a versioned snapshot pull would fix it.
-- Provisioned Grafana dashboards.
