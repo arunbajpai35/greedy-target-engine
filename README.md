@@ -1,327 +1,80 @@
-# Targeting Engine - GreedyGame Backend Assignment
+# greedy-target-engine
 
-A high-performance targeting engine microservice that routes campaigns to requests based on targeting criteria. Built with Go, PostgreSQL, and Docker.
+A small Go service that, given an `(app, country, os)` tuple, returns the ad campaigns whose targeting rules allow it. Originally written for the GreedyGame backend take-home; rebuilt here as a portfolio piece.
 
-## 🚀 Features
+## What it does
 
-- **High Performance**: Optimized for read-heavy workloads with billions of delivery requests
-- **Scalable Architecture**: Horizontal and vertical scaling support
-- **Complex Targeting Rules**: Support for include/exclude rules across multiple dimensions
-- **Real-time Updates**: Reacts to database changes automatically
-- **Comprehensive Testing**: Unit and integration tests with high coverage
-- **Production Ready**: Graceful shutdown, health checks, and proper error handling
+- `GET /v1/delivery?app=...&country=...&os=...` returns matching `ACTIVE` campaigns.
+- `GET /v2/delivery?...` is the same behavior, served through a go-kit pipeline (decoder → endpoint → service → store) so the layering is explicit.
+- `GET /healthz` liveness, `GET /readyz` checks the DB, `GET /metrics` Prometheus.
 
-## 🏗️ Architecture
-
-### Core Entities
-
-1. **Campaign**: Central entity representing an advertisement
-   - `cid`: Unique campaign identifier
-   - `name`: Campaign name
-   - `img`: Image creative URL
-   - `cta`: Call to action text
-   - `status`: ACTIVE or INACTIVE
-
-2. **Targeting Rule**: Defines where campaigns can run
-   - Include/Exclude rules for Country, OS, and App ID
-   - Support for multiple values per dimension
-   - Case-insensitive matching
-
-3. **Delivery**: Service that matches requests to campaigns
-   - Accepts app, country, and OS parameters
-   - Returns matching campaigns or 204 for no matches
-
-### Database Design
-
-- **campaigns**: Stores campaign information
-- **targeting_rules**: Stores targeting criteria with array support
-- **Indexes**: Optimized for read-heavy workloads
-
-## 🛠️ Setup & Installation
-
-### Prerequisites
-
-- Docker and Docker Compose
-- Go 1.21+ (for local development)
-
-### Quick Start with Docker
-
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd greedy-target-engine
-   ```
-
-2. **Start the services**
-   ```bash
-   docker-compose up -d
-   ```
-
-3. **Verify the setup**
-   ```bash
-   # Check health endpoint
-   curl http://localhost:8080/healthz
-   
-   # Test delivery endpoint
-   curl "http://localhost:8080/v1/delivery?app=com.gametion.ludokinggame&country=us&os=android"
-   ```
-
-### Local Development
-
-1. **Start PostgreSQL**
-   ```bash
-   docker-compose up postgres -d
-   ```
-
-2. **Run migrations**
-   ```bash
-   # The migrations run automatically when PostgreSQL starts
-   # Or manually:
-   docker exec -i $(docker-compose ps -q postgres) psql -U postgres -d targeting_db < db/migrations/init.sql
-   docker exec -i $(docker-compose ps -q postgres) psql -U postgres -d targeting_db < db/migrations/seed.sql
-   ```
-
-3. **Run the application**
-   ```bash
-   go run cmd/server/main.go
-   ```
-
-## 📡 API Documentation
-
-### Health Check
-
-```http
-GET /healthz
-```
-
-**Response:**
+Response shape:
 ```json
-{
-  "status": "healthy",
-  "timestamp": "2024-01-15T10:30:00Z"
-}
+[{"cid":"spotify","name":"Spotify - Music for everyone","img":"https://somelink","cta":"Download"}]
 ```
+`204 No Content` on no match, `400` on a missing query param, `500` on a DB error.
 
-### Delivery Endpoint
-
-```http
-GET /v1/delivery?app={app_id}&country={country}&os={operating_system}
-```
-
-**Parameters:**
-- `app` (required): Application identifier (e.g., "com.gametion.ludokinggame")
-- `country` (required): Country code (e.g., "us", "germany")
-- `os` (required): Operating system (e.g., "android", "ios", "web")
-
-**Responses:**
-
-**Success (200 OK):**
-```json
-[
-  {
-    "cid": "spotify",
-    "name": "Spotify - Music for everyone",
-    "img": "https://somelink",
-    "cta": "Download"
-  },
-  {
-    "cid": "subwaysurfer",
-    "name": "Subway Surfer",
-    "img": "https://somelink3",
-    "cta": "Play"
-  }
-]
-```
-
-**No Matches (204 No Content):**
-```http
-HTTP/1.1 204 No Content
-```
-
-**Bad Request (400 Bad Request):**
-```json
-{
-  "error": "missing app param"
-}
-```
-
-**Server Error (500 Internal Server Error):**
-```json
-{
-  "error": "internal server error"
-}
-```
-
-## 🧪 Testing
-
-### Run All Tests
+## Run it
 
 ```bash
-go test ./...
+docker-compose up -d            # app + postgres + prometheus + grafana
+curl 'http://localhost:8080/v1/delivery?app=com.gametion.ludokinggame&country=us&os=android'
 ```
 
-### Run Specific Test Suites
-
+Local without Docker:
 ```bash
-# Unit tests (no database required)
-go test ./internal/delivery -v
-
-# Integration tests (requires database)
-go test ./internal/campaigns -v
-
-# All tests with coverage
-go test ./... -cover
+docker-compose up postgres -d
+make run
 ```
 
-### Test Examples
-
-The test suite includes comprehensive scenarios:
-
-- ✅ Valid parameter validation
-- ✅ Missing parameter handling
-- ✅ Case-insensitive matching
-- ✅ Complex targeting rules
-- ✅ Multiple campaign matches
-- ✅ No matches scenarios
-- ✅ Performance testing
-- ✅ Response format validation
-
-## 📊 Sample Data
-
-The application comes pre-loaded with sample campaigns and targeting rules:
-
-### Campaigns
-- **spotify**: Music streaming app
-- **duolingo**: Language learning app  
-- **subwaysurfer**: Mobile game
-
-### Targeting Rules
-- **spotify**: Available in US and Canada
-- **duolingo**: Available on Android/iOS, excluded from US
-- **subwaysurfer**: Available on Android for specific app
-
-## 🔧 Configuration
-
-### Environment Variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `DB_HOST` | `localhost` | Database host |
-| `DB_PORT` | `5432` | Database port |
-| `DB_NAME` | `targeting_db` | Database name |
-| `DB_USER` | `postgres` | Database user |
-| `DB_PASSWORD` | `password` | Database password |
-| `DB_SSL_MODE` | `disable` | SSL mode |
-
-### Performance Considerations
-
-- **Read-Heavy Optimization**: Database indexes on frequently queried columns
-- **Connection Pooling**: Efficient database connection management
-- **Query Optimization**: Single query with complex targeting logic
-- **Caching Ready**: Architecture supports Redis/memcached integration
-
-## 🚀 Deployment
-
-### Docker Deployment
-
+Tests (the integration ones expect Postgres on `localhost:5432`):
 ```bash
-# Build and run
-docker-compose up --build
-
-# Production deployment
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+make test
 ```
 
-### Kubernetes Deployment
+## Data model
 
-```bash
-# Apply Kubernetes manifests
-kubectl apply -f k8s/
-```
+Two tables:
 
-## 📈 Monitoring & Observability
+- `campaigns(cid PK, name, img, cta, status)` where `status` is `ACTIVE` or `INACTIVE`.
+- `targeting_rules(id, cid FK, include_country TEXT[], exclude_country TEXT[], include_os TEXT[], exclude_os TEXT[], include_app TEXT[], exclude_app TEXT[])`.
 
-### Health Checks
-- Application health: `GET /healthz`
-- Database connectivity monitoring
-- Graceful shutdown handling
+A `NULL` array means "no constraint on this dimension". A non-null array on `include_*` means "only these values"; on `exclude_*` means "everything except these". Both can be set on the same rule — exclude wins.
 
-### Logging
-- Structured logging with request IDs
-- Performance metrics (request duration)
-- Error tracking and debugging
+## How matching works
 
-### Metrics (Future Enhancement)
-- Prometheus metrics integration
-- Grafana dashboards
-- Request rate monitoring
-- Database performance metrics
+One SQL query joins the two tables and applies the include/exclude predicates with `@>` against the request tuple. See `internal/campaigns/campaign_store.go`.
 
-## 📈 Monitoring (Prometheus & Grafana)
+## Performance trade-off
 
-- Metrics endpoint: `GET /metrics`
-- Exposed metrics:
-  - `delivery_requests_total{status}`
-  - `delivery_request_duration_seconds{status}`
-  - `db_query_duration_seconds`
+The README this replaced claimed "optimized for billions of requests". The reality:
 
-Start full stack with monitoring:
+- GIN indexes are in place on the six array columns, and `@>` is the operator GIN serves.
+- But each predicate is wrapped as `(col IS NULL OR col @> ARRAY[$x])`. The `IS NULL` branch defeats the planner's index choice — at any meaningful row count it falls back to a sequential scan over `targeting_rules`.
+- Honest fix: drop `NULL` as the no-constraint sentinel, default to `'{}'`, and split the query so each branch is sargable. Or sit a small in-memory cache in front of the DB and refresh on `LISTEN/NOTIFY` — read-heavy workloads win more from that than from index tuning.
 
-```bash
-docker-compose up -d
-# Prometheus: http://localhost:9090
-# Grafana:    http://localhost:3000  (admin/admin)
-```
+For the seeded scale of three campaigns, none of this matters. For "billions" it does.
 
-## v2 API (go-kit)
+## Environment
 
-- New endpoint (same behavior as v1) built with go-kit:
+| Variable | Default | Notes |
+| --- | --- | --- |
+| `DB_HOST` / `DB_PORT` / `DB_NAME` / `DB_USER` / `DB_PASSWORD` / `DB_SSL_MODE` | `localhost` / `5432` / `targeting_db` / `postgres` / `password` / `disable` | |
+| `DB_MAX_OPEN_CONNS` | 25 | |
+| `DB_MAX_IDLE_CONNS` | 10 | |
 
-```http
-GET /v2/delivery?app={app}&country={country}&os={os}
-```
+Server listens on `:8080`.
 
-v1 routes remain for compatibility and tests.
+## Observability
 
-## 🔍 Troubleshooting
+- `/metrics` exposes `delivery_requests_total{status}`, `delivery_request_duration_seconds{status}`, `db_query_duration_seconds`.
+- The compose stack starts Prometheus on `:9090` (scraping `app:8080`) and Grafana on `:3000` (admin/admin). Datasource and dashboards are not provisioned — add them manually.
+- Logs are JSON via `slog`.
 
-### Common Issues
+## What's missing / what i'd do next
 
-1. **Database Connection Failed**
-   ```bash
-   # Check if PostgreSQL is running
-   docker-compose ps
-   
-   # Check logs
-   docker-compose logs postgres
-   ```
-
-2. **No Campaigns Returned**
-   ```bash
-   # Verify data is seeded
-   docker exec -it $(docker-compose ps -q postgres) psql -U postgres -d targeting_db -c "SELECT * FROM campaigns;"
-   ```
-
-3. **Port Already in Use**
-   ```bash
-   # Change port in docker-compose.yml
-   ports:
-     - "8081:8080"  # Use different host port
-   ```
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests for new functionality
-5. Ensure all tests pass
-6. Submit a pull request
-
-## 📝 License
-
-This project is confidential and proprietary to GreedyGame Media Pvt Ltd.
-
----
-
-**Built with ❤️ using Go, PostgreSQL, and Docker**
+- A real cache + invalidation path. `LISTEN/NOTIFY` on `targeting_rules` is the obvious lever for the "read-heavy" claim.
+- Schema rewrite so `'{}'` replaces `NULL` for "no constraint" — unblocks GIN.
+- Bench harness with `pgbench` or a Go bench so the perf claims have numbers behind them.
+- Auth on `/v1/delivery` (the take-home brief didn't ask, but a real ad-serving endpoint shouldn't be open).
+- Provisioned Grafana dashboards.
