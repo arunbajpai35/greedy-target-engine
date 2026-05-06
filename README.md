@@ -64,6 +64,7 @@ The earlier SQL-per-request implementation lived in an `internal/campaigns` pack
 | `DB_MAX_IDLE_CONNS` | 10 | |
 | `APPLY_SEED` | `false` | If `true`, the embedded `seed.sql` runs on boot. Idempotent. |
 | `PORT` | `8080` | Render and similar PaaS inject this. |
+| `API_SECRET` | unset | If set, `/v1/delivery` and `/v2/delivery` require an HMAC-signed request. `/healthz`, `/readyz`, `/metrics` stay open. |
 
 Schema lives in `internal/migrate/sql/` and is embedded into the binary; `init.sql` runs on every boot, `seed.sql` only when `APPLY_SEED=true`.
 
@@ -85,6 +86,28 @@ Wiring it up yourself:
 1. **Neon**: create a project, copy the **direct** connection string — *not* the pooled one. The pooled hostname has `-pooler` in it; PgBouncer in transaction mode silently drops `LISTEN/NOTIFY`, so cache invalidation breaks. The pooled URL still works for everything else, which makes it especially nasty to debug.
 2. **Render**: New → Web Service → connect this repo. Runtime: Docker. Plan: free. Region: pick the same one as Neon. Env vars: `DATABASE_URL` (the direct URL from step 1), `APPLY_SEED=true` for the first deploy (flip to `false` afterwards). Render auto-injects `PORT`.
 3. First boot applies the schema and seed; subsequent boots only apply the schema.
+
+## Auth
+
+The delivery endpoints are open by default so the live demo is easy to poke at. Setting `API_SECRET` flips on HMAC auth.
+
+Request must carry:
+
+- `X-Timestamp: <unix seconds>` — rejected if more than 5 minutes off server time
+- `X-Signature: hex(hmac_sha256(secret, payload))`
+
+Where `payload` is `<timestamp>\n<method>\n<path>\n<sorted-query>`. Query is `k=v` pairs joined with `&`, keys sorted alphabetically. Example:
+
+```bash
+SECRET=...
+TS=$(date +%s)
+PAYLOAD=$(printf "%s\nGET\n/v1/delivery\napp=com.gametion.ludokinggame&country=us&os=android" "$TS")
+SIG=$(printf "%s" "$PAYLOAD" | openssl dgst -sha256 -hmac "$SECRET" -hex | awk '{print $NF}')
+curl -H "X-Timestamp: $TS" -H "X-Signature: $SIG" \
+  "http://localhost:8080/v1/delivery?app=com.gametion.ludokinggame&country=us&os=android"
+```
+
+The signature is checked with constant-time compare. Replay protection is the timestamp window — a captured request is useless after 5 minutes.
 
 ## Observability
 
@@ -114,5 +137,4 @@ The matcher is a linear walk over the snapshot, so cost grows with rule count. F
 
 ## What's missing / what i'd do next
 
-- Auth on `/v1/delivery` (the take-home brief didn't ask, but a real ad-serving endpoint shouldn't be open).
 - Multi-instance cache coordination — the LISTEN/NOTIFY model fans out fine, but two replicas reload independently, which is wasteful at scale. A delta channel or a versioned snapshot pull would fix it.
