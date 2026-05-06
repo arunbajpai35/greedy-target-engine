@@ -5,7 +5,7 @@ type Campaign struct {
 	Name   string `json:"name"`
 	Img    string `json:"img"`
 	CTA    string `json:"cta"`
-	Status string `json:"status"`
+	Status string `json:"-"`
 }
 
 type TargetingRule struct {

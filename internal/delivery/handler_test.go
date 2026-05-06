@@ -122,7 +122,7 @@ func TestHandleDeliveryRequest_Integration(t *testing.T) {
 		},
 		{
 			name:           "No matches - should return 204",
-			query:          "?app=com.test&country=us&os=web",
+			query:          "?app=com.test&country=zz&os=web",
 			expectedStatus: http.StatusNoContent,
 		},
 		{
@@ -200,13 +200,12 @@ func TestHandleDeliveryRequest_ResponseFormat(t *testing.T) {
 	err = json.Unmarshal(w.Body.Bytes(), &campaigns)
 	require.NoError(t, err)
 
-	// Verify campaign structure
 	for _, campaign := range campaigns {
 		assert.NotEmpty(t, campaign.ID)
 		assert.NotEmpty(t, campaign.Name)
 		assert.NotEmpty(t, campaign.Img)
 		assert.NotEmpty(t, campaign.CTA)
-		assert.Equal(t, "ACTIVE", campaign.Status)
+		assert.Empty(t, campaign.Status, "status must not leak to the wire")
 	}
 }
 
