@@ -20,6 +20,7 @@ go.work
 # Build artifacts
 bin/
 dist/
+/server
 
 # IDE files
 .vscode/
@@ -46,9 +47,6 @@ logs/
 .env.local
 .env.production
 
-# Docker
-.dockerignore
-
 # Temporary files
 tmp/
 temp/
@@ -62,4 +60,7 @@ coverage.txt
 coverage.html
 
 # Air live reload
-tmp/ 
+tmp/
+
+# Local Claude scratch
+CLAUDE.md
