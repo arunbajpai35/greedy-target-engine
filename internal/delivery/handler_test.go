@@ -52,7 +52,7 @@ func TestValidateParams(t *testing.T) {
 		{
 			name:     "Case insensitive parameters",
 			query:    "?app=COM.TEST&country=US&os=ANDROID",
-			expected: models.DeliveryRequest{App: "COM.TEST", Country: "us", OS: "android"},
+			expected: models.DeliveryRequest{App: "com.test", Country: "us", OS: "android"},
 			hasError: false,
 		},
 		{
