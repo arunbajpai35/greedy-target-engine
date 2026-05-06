@@ -30,3 +30,22 @@ CREATE INDEX IF NOT EXISTS idx_targeting_rules_include_os      ON targeting_rule
 CREATE INDEX IF NOT EXISTS idx_targeting_rules_exclude_os      ON targeting_rules USING GIN (exclude_os);
 CREATE INDEX IF NOT EXISTS idx_targeting_rules_include_app     ON targeting_rules USING GIN (include_app);
 CREATE INDEX IF NOT EXISTS idx_targeting_rules_exclude_app     ON targeting_rules USING GIN (exclude_app);
+
+-- NOTIFY targeting_changes on any write to either table; the app uses this to
+-- invalidate its in-memory cache.
+CREATE OR REPLACE FUNCTION notify_targeting_change() RETURNS trigger AS $$
+BEGIN
+    PERFORM pg_notify('targeting_changes', TG_TABLE_NAME);
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS targeting_rules_notify ON targeting_rules;
+CREATE TRIGGER targeting_rules_notify
+    AFTER INSERT OR UPDATE OR DELETE ON targeting_rules
+    FOR EACH STATEMENT EXECUTE FUNCTION notify_targeting_change();
+
+DROP TRIGGER IF EXISTS campaigns_notify ON campaigns;
+CREATE TRIGGER campaigns_notify
+    AFTER INSERT OR UPDATE OR DELETE ON campaigns
+    FOR EACH STATEMENT EXECUTE FUNCTION notify_targeting_change();

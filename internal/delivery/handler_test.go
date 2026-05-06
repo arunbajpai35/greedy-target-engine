@@ -1,6 +1,7 @@
 package delivery
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"net/http"
@@ -9,13 +10,22 @@ import (
 
 	_ "github.com/lib/pq"
 
+	"github.com/arunbajpai35/greedygame-targeting-engine/internal/cache"
 	"github.com/arunbajpai35/greedygame-targeting-engine/internal/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// Test database connection string - adjust as needed
 const testDBConnStr = "postgres://postgres:password@localhost:5432/targeting_db?sslmode=disable"
+
+func testCache(t *testing.T, db *sql.DB) *cache.Cache {
+	t.Helper()
+	c := cache.New()
+	if err := c.Reload(context.Background(), db); err != nil {
+		t.Fatalf("cache reload: %v", err)
+	}
+	return c
+}
 
 func TestValidateParams(t *testing.T) {
 	tests := []struct {
@@ -159,7 +169,7 @@ func TestHandleDeliveryRequest_Integration(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, "/v1/delivery"+tc.query, nil)
 			w := httptest.NewRecorder()
 
-			handler := HandleDeliveryRequest(db)
+			handler := HandleDeliveryRequest(testCache(t, db))
 			handler(w, req)
 
 			assert.Equal(t, tc.expectedStatus, w.Code)
@@ -189,7 +199,7 @@ func TestHandleDeliveryRequest_ResponseFormat(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/v1/delivery?app=com.gametion.ludokinggame&country=us&os=android", nil)
 	w := httptest.NewRecorder()
 
-	handler := HandleDeliveryRequest(db)
+	handler := HandleDeliveryRequest(testCache(t, db))
 	handler(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -229,7 +239,7 @@ func TestHandleDeliveryRequest_Performance(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, "/v1/delivery?app=com.gametion.ludokinggame&country=us&os=android", nil)
 			w := httptest.NewRecorder()
 
-			handler := HandleDeliveryRequest(db)
+			handler := HandleDeliveryRequest(testCache(t, db))
 			handler(w, req)
 
 			results <- w.Code
