@@ -1,6 +1,6 @@
 # greedy-target-engine
 
-A small Go service that, given an `(app, country, os)` tuple, returns the ad campaigns whose targeting rules allow it. Originally written for the GreedyGame backend take-home; rebuilt here as a portfolio piece.
+A small Go service that, given an `(app, country, os)` tuple, returns the ad campaigns whose targeting rules allow it.
 
 ## What it does
 
