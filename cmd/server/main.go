@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -34,6 +35,11 @@ func main() {
 		os.Exit(1)
 	}
 	defer db.Close()
+
+	db.SetMaxOpenConns(envInt("DB_MAX_OPEN_CONNS", 25))
+	db.SetMaxIdleConns(envInt("DB_MAX_IDLE_CONNS", 10))
+	db.SetConnMaxLifetime(30 * time.Minute)
+	db.SetConnMaxIdleTime(5 * time.Minute)
 
 	if err := pingWithRetry(db, 10, time.Second); err != nil {
 		logger.Error("ping db", "err", err)
@@ -142,4 +148,16 @@ func getEnv(key, def string) string {
 		return v
 	}
 	return def
+}
+
+func envInt(key string, def int) int {
+	v := os.Getenv(key)
+	if v == "" {
+		return def
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n <= 0 {
+		return def
+	}
+	return n
 }

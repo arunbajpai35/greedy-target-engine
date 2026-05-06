@@ -29,7 +29,7 @@ func HandleDeliveryRequest(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		matched, err := campaigns.GetMatchingCampaigns(db, req.App, req.Country, req.OS)
+		matched, err := campaigns.GetMatchingCampaigns(r.Context(), db, req.App, req.Country, req.OS)
 		if err != nil {
 			slog.ErrorContext(r.Context(), "delivery query failed", "req_id", reqID, "err", err)
 			w.WriteHeader(http.StatusInternalServerError)

@@ -31,7 +31,7 @@ import (
 	return func(ctx context.Context, request interface{}) (interface{}, error) {
 		start := time.Now()
 		req := request.(DeliveryRequest)
-		campaigns, err := svc.Deliver(req.App, req.Country, req.OS)
+		campaigns, err := svc.Deliver(ctx, req.App, req.Country, req.OS)
 		status := "ok"
 		if err != nil {
 			status = "error"
