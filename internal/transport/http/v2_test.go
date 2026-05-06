@@ -58,6 +58,28 @@ func TestV2Delivery_NoMatch(t *testing.T) {
 	assert.Empty(t, w.Body.String())
 }
 
+func TestV2Delivery_MissingParams(t *testing.T) {
+	r, cleanup := newRouter(t)
+	defer cleanup()
+
+	cases := []struct {
+		name, query, msg string
+	}{
+		{"missing app", "/v2/delivery?country=us&os=android", "missing app param"},
+		{"missing country", "/v2/delivery?app=x&os=android", "missing country param"},
+		{"missing os", "/v2/delivery?app=x&country=us", "missing os param"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, c.query, nil)
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, req)
+			assert.Equal(t, http.StatusBadRequest, w.Code)
+			assert.JSONEq(t, `{"error":"`+c.msg+`"}`, w.Body.String())
+		})
+	}
+}
+
 func TestV2Delivery_CaseInsensitive(t *testing.T) {
 	r, cleanup := newRouter(t)
 	defer cleanup()
